@@ -30,12 +30,12 @@ def main(args):
     m = hashlib.md5()
     progess = tqdm(total=num_files)
     for noisy_file, clean_file in zip(noisy_files, clean_files):
-        img_path = os.path.join(args.img_folder, noisy_file)
-        bkg_path = os.path.join(args.bkg_folder, clean_file)
+        noisy_path = os.path.join(args.noisy_folder, noisy_file)
+        clean_path = os.path.join(args.clean_folder, clean_file)
 
         # Load fits
-        noisy = fits.getdata(img_path, ext=0)
-        clean = fits.getdata(bkg_path, ext=0)
+        noisy = fits.getdata(noisy_path, ext=0)
+        clean = fits.getdata(clean_path, ext=0)
 
         if noisy.shape != clean.shape:
             logging.error(f"{noisy_file} and {clean_file} are not the same photo! Shapes do not match.")
