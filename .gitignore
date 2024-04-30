@@ -1,0 +1,10 @@
+*.png
+*.pth
+*.onnx
+*.zip
+.DS_Store
+.idea/
+.ipynb_checkpoints/
+dataset/
+env/
+*/__pycache__/*
