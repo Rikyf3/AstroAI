@@ -2,7 +2,7 @@ import os
 
 import matplotlib.pyplot as plt
 
-from .utils import median_abs_deviation, log_norm, stretch
+from .utils import median_abs_deviation, log_norm, linear_fit
 import torch
 import numpy as np
 import torch.utils.data
@@ -104,5 +104,7 @@ class DenoiseDataset(torch.utils.data.Dataset):
         # Normalizing
         noisy, min_, mean_, std_ = log_norm(noisy)
         clean, _, _, _ = log_norm(clean, min_=min_, mean_=mean_, std_=std_)
+
+        clean = linear_fit(noisy, clean)
 
         return noisy, clean

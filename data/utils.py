@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 import matplotlib.pyplot as plt
 
 
@@ -49,3 +50,15 @@ def log_denorm(x, min_, mean_, std_, epsilon=1e-5):
     x = x + min_ - epsilon
 
     return x
+
+
+@torch.compile()
+def linear_fit(x, y, clipping=0.95):
+    x, y = x.numpy(), y.numpy()
+
+    for c in range(x.shape[0]):
+        indx_clipped = x[c, :, :].flatten() < clipping * x.max()
+        coeff = np.polyfit(y[c, :, :].flatten()[indx_clipped], x[c, :, :].flatten()[indx_clipped], 1)
+        y[:, :, c] = y[:, :, c] * coeff[0] + coeff[1]
+
+    return y
