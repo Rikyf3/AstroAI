@@ -53,8 +53,8 @@ def train(args):
 
         print(f"Epoch : {e}; Loss : {loss_avg / len(dataloader)}")
 
-        # if args.save_model:
-        torch.save(model.state_dict(), "./model.pth")
+        if args.save_model:
+            torch.save(model.state_dict(), "./model.pth")
 
 
 if __name__ == "__main__":
@@ -64,7 +64,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--batch_size", type=int, default=8)
-    parser.add_argument("--lr", type=float, default=1e-5)
+    parser.add_argument("--lr", type=float, default=5e-6)
     parser.add_argument("--iters_per_epoch", type=int, default=600)
     parser.add_argument("--save_model", action="store_true")
 

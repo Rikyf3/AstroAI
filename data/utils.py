@@ -59,6 +59,6 @@ def linear_fit(x, y, clipping=0.95):
     for c in range(x.shape[0]):
         indx_clipped = x[c, :, :].flatten() < clipping * x.max()
         coeff = np.polyfit(y[c, :, :].flatten()[indx_clipped], x[c, :, :].flatten()[indx_clipped], 1)
-        y[:, :, c] = y[:, :, c] * coeff[0] + coeff[1]
+        y[c, :, :] = y[c, :, :] * coeff[0] + coeff[1]
 
     return y
