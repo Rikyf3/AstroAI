@@ -9,11 +9,11 @@ class Downsample(torch.nn.Module):
                                      padding="same", stride=1)
         self.conv2 = torch.nn.Conv2d(in_channels=out_channels, out_channels=out_channels, kernel_size=kernel_size,
                                      padding="same", stride=1)
-        self.act1 = torch.nn.LeakyReLU()
-        self.act2 = torch.nn.LeakyReLU()
+        self.act1 = torch.nn.LeakyReLU(0.2)
+        self.act2 = torch.nn.LeakyReLU(0.2)
         self.batch1 = torch.nn.BatchNorm2d(num_features=out_channels)
         self.batch2 = torch.nn.BatchNorm2d(num_features=out_channels)
-        self.pool = torch.nn.MaxPool2d(2)
+        self.pool = torch.nn.AvgPool2d(2)
 
     def forward(self, x):
         x = self.conv1(x)
@@ -35,8 +35,8 @@ class Upsample(torch.nn.Module):
                                      padding="same", stride=1)
         self.conv2 = torch.nn.Conv2d(in_channels=out_channels, out_channels=out_channels, kernel_size=kernel_size,
                                      padding="same", stride=1)
-        self.act1 = torch.nn.LeakyReLU()
-        self.act2 = torch.nn.LeakyReLU()
+        self.act1 = torch.nn.LeakyReLU(0.2)
+        self.act2 = torch.nn.LeakyReLU(0.2)
         self.batch1 = torch.nn.BatchNorm2d(num_features=out_channels)
         self.batch2 = torch.nn.BatchNorm2d(num_features=out_channels)
 
