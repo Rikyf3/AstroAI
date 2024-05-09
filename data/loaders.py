@@ -51,23 +51,11 @@ class BkgDataset(torch.utils.data.Dataset):
         # Summing images
         img = img + bkg  # From this point forward img represents the image with the gradient added
 
-        # Normalizing (shift)
-        min_ = torch.min(img)
-        img = img - min_ + self.epsilon
-        bkg = torch.clip(bkg - min_ + self.epsilon, self.epsilon, torch.inf)
-
-        # Normalizing (log transform)
-        img = torch.log(img)
-        bkg = torch.log(bkg)
-
-        # Normalizing (mean and std)
-        mean_img = torch.mean(img)
-        std_img = torch.std(img)
-        img = (img - mean_img) / std_img * 0.1
-        bkg = (bkg - mean_img) / std_img * 0.1
+        img, min_, mean_, std_ = log_norm(img)
+        bkg, _, _, _ = log_norm(bkg, min_=min_, mean_=mean_, std_=std_, clip=True)
 
         if self.validation:
-            return img, bkg, min_, mean_img, std_img
+            return img, bkg, min_, mean_, std_
         return img, bkg
 
 

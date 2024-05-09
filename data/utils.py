@@ -30,15 +30,17 @@ def plot_batch(image, output, bkg, epoch, num_of_images=8):
     plt.close(fig)
 
 
-# TODO : make it channel-wise
 def log_norm(x, min_=None, mean_=None, std_=None, epsilon=1e-5, clip=False):
-    min_ = torch.min(x) if min_ is None else min_
+    min_ = torch.min(x.reshape(3, -1), dim=1).values[:, None, None] if min_ is None else min_
 
-    x = x - min_ + epsilon if not clip else torch.clip(x - min_ + epsilon, epsilon, torch.inf)
+    x = x - min_ + epsilon
+    if clip:
+        x = torch.clip(x, epsilon, torch.inf)
+
     x = torch.log(x)
 
-    mean_ = torch.mean(x) if mean_ is None else mean_
-    std_ = torch.std(x) if std_ is None else std_
+    mean_ = torch.mean(x.reshape(3, -1), dim=1)[:, None, None] if mean_ is None else mean_
+    std_ = torch.std(x.reshape(3, -1), dim=1)[:, None, None] if std_ is None else std_
 
     x = (x - mean_) / std_ * 0.1
     x = torch.nan_to_num(x, 0)
