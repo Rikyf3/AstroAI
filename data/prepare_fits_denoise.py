@@ -5,6 +5,7 @@ import argparse
 import numpy as np
 from tqdm import tqdm
 from astropy.io import fits
+from utils import lin_norm
 
 
 def main(args):
@@ -44,6 +45,10 @@ def main(args):
         # Cast to float32
         noisy = noisy.astype(np.float32)
         clean = clean.astype(np.float32)
+
+        # Normalization
+        noisy, med_, mad_ = lin_norm(noisy)
+        clean, _, _ = lin_norm(clean, med_, mad_)
 
         # Save images in .npy (use np.memmap to open it)
         m.update(bytes(noisy_file, encoding='utf8'))
