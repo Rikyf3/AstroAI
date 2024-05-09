@@ -24,7 +24,6 @@ class BkgDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.image_files)
 
-    # TODO : implement different median and mad for each channel
     def __getitem__(self, x):
         img_file = np.random.choice(self.image_files, 1)[0]
         bkg_file = np.random.choice(self.bkg_files, 1)[0]
@@ -45,17 +44,16 @@ class BkgDataset(torch.utils.data.Dataset):
         # Augmenting gradient intensity
         if not self.validation:
             bkg_scaling = np.power(10, np.random.uniform(-1.2, 1.2))
-            # color_scaling = 0.5 * torch.randn(3, 1, 1) + 1
-            bkg = bkg * bkg_scaling  # * color_scaling
+            bkg = bkg * bkg_scaling
 
         # Summing images
         img = img + bkg  # From this point forward img represents the image with the gradient added
 
-        img, min_, mean_, std_ = log_norm(img)
-        bkg, _, _, _ = log_norm(bkg, min_=min_, mean_=mean_, std_=std_, clip=True)
+        img, med_, mad_ = lin_norm(img)
+        bkg, _, _ = lin_norm(bkg, med_=med_, mad_=mad_)
 
         if self.validation:
-            return img, bkg, min_, mean_, std_
+            return img, bkg, med_, mad_
         return img, bkg
 
 

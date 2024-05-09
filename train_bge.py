@@ -2,15 +2,15 @@ import os.path
 
 import torch
 import argparse
-from models import VisionTransformer
-from heads import ImageHead
-from data import BkgDataset, make_image_transform_crop_resize, make_bkg_transform, make_transform_val, utils
+from models import VisionTransformer, UNet
+from data import BkgDataset, make_image_transform_crop_resize, make_bkg_transform, make_transform_val
+from data.utils import lin_denorm, plot_batch
 import torch.utils.data
 from tqdm import tqdm
 
 
 def train(args):
-    model = VisionTransformer(backbone_size="base", head_layer=ImageHead)  # .cuda()
+    model = UNet([64, 128, 256, 512, 512, 512, 512, 512])  # .cuda()
 
     optim = torch.optim.AdamW(model.parameters(), lr=args.initial_lr, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optim, args.iters_per_epoch * args.epochs,
@@ -70,21 +70,21 @@ def train(args):
 
         # Validation cycle
         model.eval()
-        for image, bkg, min_, img_mean, img_std in val_dataloader:
+        for image, bkg, med_, mad_ in val_dataloader:
             # image = image.cuda(non_blocking=True)
             # bkg = bkg.cuda(non_blocking=True)
             output = model(image)
 
             for b in range(image.shape[0]):
-                output[b] = torch.exp(output[b] * img_std[b] / 0.1 + img_mean[b]) + min_[b] - 1e-6
-                bkg[b] = torch.exp(bkg[b] * img_std[b] / 0.1 + img_mean[b]) + min_[b] - 1e-6
+                output[b] = lin_denorm(output[b], med_[b], mad_[b])
+                bkg[b] = lin_denorm(bkg[b], med_[b], mad_[b])
 
             loss_val = loss_fn_val(output, bkg)
 
             loss_avg_val += loss_val.item()
 
         # Plotting
-        utils.plot_batch(image, output, bkg, e, num_of_images=2)
+        plot_batch(image, output, bkg, e, num_of_images=2)
 
         print(f"Epoch : {e}; Loss : {loss_avg / len(dataloader)}; Val Loss : {loss_avg_val / len(val_dataloader)}")
 
