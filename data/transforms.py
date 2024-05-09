@@ -85,7 +85,6 @@ def make_image_transform_crop_resize(image_output_size):
         v2.RandomHorizontalFlip(),
         v2.RandomVerticalFlip(),
         RandomnNintyDegreeRotation(),  # TODO : make it for all angles and not only 90*k
-        # v2.RandomGrayscale(p=0.1),
         RandomChannelSwap(),
     ])
 
@@ -98,8 +97,6 @@ def make_bkg_transform(image_output_size):
         v2.RandomVerticalFlip(),
         RandomnNintyDegreeRotation(),  # TODO : make it for all angles and not only 90*k
         v2.ColorJitter(hue=0.5, saturation=0.2),
-        FourierRandomGradient(p=.5),
-        v2.RandomGrayscale(p=0.1),
         RandomChannelSwap(),
     ])
 
@@ -111,11 +108,9 @@ def make_transform_val(image_output_size):
     ])
 
 
-# Denoise transforms
 def make_image_transform_crop():
     return v2.Compose([
         MemEffRandomCrop(scale=256),
-        RandomChannelSwap(),
         v2.RandomHorizontalFlip(),
         v2.RandomVerticalFlip(),
         RandomnNintyDegreeRotation(),
