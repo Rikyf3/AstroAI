@@ -3,6 +3,7 @@ import logging
 import hashlib
 import argparse
 import numpy as np
+import torch
 from tqdm import tqdm
 from astropy.io import fits
 from utils import lin_norm
@@ -47,8 +48,10 @@ def main(args):
         clean = clean.astype(np.float32)
 
         # Normalization
-        noisy, med_, mad_ = lin_norm(noisy)
-        clean, _, _ = lin_norm(clean, med_, mad_)
+        noisy, med_, mad_ = lin_norm(torch.from_numpy(noisy))
+        clean, _, _ = lin_norm(torch.from_numpy(clean), med_, mad_)
+        noisy = noisy.numpy()
+        clean = clean.numpy()
 
         # Save images in .npy (use np.memmap to open it)
         m.update(bytes(noisy_file, encoding='utf8'))
