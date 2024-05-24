@@ -89,7 +89,7 @@ def train(args):
         print(f"Epoch : {e}; Loss : {loss_avg / len(dataloader)}; Val Loss : {loss_avg_val / len(val_dataloader)}")
 
         if args.save_model:
-            torch.save(model.state_dict(), "./model.pth")
+            torch.save(model.state_dict(), "./model_bge.pth")
 
 
 if __name__ == "__main__":
