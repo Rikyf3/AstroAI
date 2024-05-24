@@ -55,7 +55,7 @@ class Upsample(torch.nn.Module):
 
 
 class UNet(torch.nn.Module):
-    def __init__(self, layer_sizes):
+    def __init__(self, layer_sizes, image_channels=3):
         super(UNet, self).__init__()
 
         self.layer_sizes = layer_sizes
@@ -64,7 +64,7 @@ class UNet(torch.nn.Module):
 
         # Initialize layers
         for index in range(len(self.layer_sizes)):
-            in_channels = 3 if index == 0 else self.layer_sizes[index - 1]
+            in_channels = image_channels if index == 0 else self.layer_sizes[index - 1]
             out_channels = self.layer_sizes[index]
 
             self.down_layers.append(Downsample(in_channels=in_channels, out_channels=out_channels))
