@@ -84,7 +84,7 @@ def train(args):
             loss_avg_val += loss_val.item()
 
         # Plotting
-        plot_batch(image, output, bkg, e, num_of_images=2)
+        plot_batch(image, output, bkg, e, num_of_images=2, folder="plots/bge")
 
         print(f"Epoch : {e}; Loss : {loss_avg / len(dataloader)}; Val Loss : {loss_avg_val / len(val_dataloader)}")
 

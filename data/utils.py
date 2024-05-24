@@ -1,3 +1,5 @@
+import os
+
 import torch
 import scipy
 import matplotlib.pyplot as plt
@@ -18,7 +20,7 @@ def stretch(x, normalize=False):
 
 
 @torch.no_grad()
-def plot_batch(image, output, bkg, epoch, num_of_images=8):
+def plot_batch(image, output, bkg, epoch, num_of_images=8, folder="./"):
     fig, axs = plt.subplots(num_of_images, 3, figsize=(16.5, 30.5))
 
     for i in range(num_of_images):
@@ -26,7 +28,7 @@ def plot_batch(image, output, bkg, epoch, num_of_images=8):
         axs[i, 1].imshow(stretch(output[i].cpu(), normalize=False), interpolation="bilinear", cmap="grey")
         axs[i, 2].imshow(stretch(bkg[i].cpu(), normalize=False), interpolation="bilinear", cmap="grey")
 
-    fig.savefig(f"plot_{epoch}", bbox_inches='tight')
+    fig.savefig(os.path.join(folder, f"plot_{epoch}.png"), bbox_inches='tight')
     plt.close(fig)
 
 

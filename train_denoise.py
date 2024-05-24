@@ -72,7 +72,7 @@ def train(args):
                 loss_avg_val += loss.item()
 
         # Plotting
-        utils.plot_batch(noisy, output, clean, e, num_of_images=2)
+        utils.plot_batch(noisy, output, clean, e, num_of_images=2, folder="plots/denoise")
 
         print(f"Epoch : {e}; Loss : {loss_avg / len(dataloader)}; Val Loss : {loss_avg_val / len(dataloader_val)}")
 
