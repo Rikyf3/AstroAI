@@ -13,8 +13,9 @@ def train(args):
     loss_fn = torch.nn.L1Loss()
 
     dataset = DenoiseDataset(noisy_folder="./dataset/train/noisy",
-                             clean_folder="./dataset/train/clean",
+                             clean_folder="./data/train_data_artifical_noise/clean",
                              image_transform=make_image_transform_crop(),
+                             use_artifical_noise=args.artifical_noise
                              )
 
     sampler = torch.utils.data.RandomSampler(dataset,
@@ -98,10 +99,11 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--batch_size", type=int, default=8)
     parser.add_argument("--lr", type=float, default=5e-6)
-    parser.add_argument("--iters_per_epoch", type=int, default=50)
+    parser.add_argument("--iters_per_epoch", type=int, default=1)
     parser.add_argument("--save_model", action="store_true")
     parser.add_argument("--val_iters", type=int, default=50)
     parser.add_argument("--validation", type=bool, default=False)
+    parser.add_argument("--artifical_noise", type=bool, default=True)
 
     args = parser.parse_args()
 
