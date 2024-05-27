@@ -58,35 +58,59 @@ class BkgDataset(torch.utils.data.Dataset):
 
 
 class DenoiseDataset(torch.utils.data.Dataset):
-    def __init__(self, noisy_folder, clean_folder, image_transform, epsilon=1e-6):
+    def __init__(self, noisy_folder, clean_folder, image_transform, use_artifical_noise=False, epsilon=1e-6):
         super(DenoiseDataset, self).__init__()
-
-        self.noisy_files = [os.path.join(noisy_folder, file) for file in os.listdir(noisy_folder)]
-        self.clean_folder = clean_folder
+        self.use_artifical_noise = use_artifical_noise
+        if use_artifical_noise:
+            self.clean_files = [os.path.join(clean_folder, file) for file in os.listdir(clean_folder)]
+        else:    
+            self.noisy_files = [os.path.join(noisy_folder, file) for file in os.listdir(noisy_folder)]
+            self.clean_folder = clean_folder
 
         self.image_transform = image_transform
 
         self.epsilon = epsilon
 
     def __len__(self):
-        return len(self.noisy_files)
+        if self.use_artifical_noise:
+            return len(self.clean_files)
+        else:
+            return len(self.noisy_files)
 
     def __getitem__(self, x):
-        noisy_file = np.random.choice(self.noisy_files, 1)[0]
-        clean_file = os.path.join(self.clean_folder, os.path.split(noisy_file)[-1])
-
-        # Loading files lazily with memmap to preserve memory and time
-        noisy = np.load(noisy_file, mmap_mode="c")
-        clean = np.load(clean_file, mmap_mode="c")
-
-        # Augmenting data
-        state_torch = torch.get_rng_state()
-        state_numpy = np.random.get_state()
-        noisy = self.image_transform(noisy)
-        torch.set_rng_state(state_torch)
-        np.random.set_state(state_numpy)
-        clean = self.image_transform(clean)
-
-        clean = linear_fit(noisy, clean)
-
-        return noisy, clean
+        if self.use_artifical_noise:
+            clean_file = np.random.choice(self.clean_files, 1)[0]
+            clean_loaded = np.load(clean_file, allow_pickle=True, mmap_mode="c")
+            clean = clean_loaded['data']
+            noise_mad = clean_loaded['metadata'].item()['noise_mad']
+            
+            state_torch = torch.get_rng_state()
+            state_numpy = np.random.get_state()
+            clean = self.image_transform(clean)
+            
+            noisy = torch.clone(clean)
+            for c in range(clean.size(0)):
+                noisy[c,:,:] = noisy[c,:,:] + torch.clone(noisy[c,:,:]).normal_(mean=0,std=1.4826) * noise_mad[c]
+                
+            return noisy, clean
+            
+            
+        else:
+            noisy_file = np.random.choice(self.noisy_files, 1)[0]
+            clean_file = os.path.join(self.clean_folder, os.path.split(noisy_file)[-1])
+    
+            # Loading files lazily with memmap to preserve memory and time
+            noisy = np.load(noisy_file, mmap_mode="c")
+            clean = np.load(clean_file, mmap_mode="c")
+    
+            # Augmenting data
+            state_torch = torch.get_rng_state()
+            state_numpy = np.random.get_state()
+            noisy = self.image_transform(noisy)
+            torch.set_rng_state(state_torch)
+            np.random.set_state(state_numpy)
+            clean = self.image_transform(clean)
+    
+            clean = linear_fit(noisy, clean)
+    
+            return noisy, clean
