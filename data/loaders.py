@@ -72,7 +72,10 @@ class DenoiseDataset(torch.utils.data.Dataset):
         self.epsilon = epsilon
 
     def __len__(self):
-        return len(self.clean_files)
+        if self.use_artifical_noise:
+            return len(self.clean_files)
+        else:
+            return len(self.noisy_files)
 
     def __getitem__(self, x):
         if self.use_artifical_noise:
