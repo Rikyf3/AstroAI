@@ -16,27 +16,33 @@ def train(args):
                              clean_folder="./dataset/train/clean",
                              image_transform=make_image_transform_crop(),
                              )
-    dataset_val = DenoiseDataset(noisy_folder="./dataset/val/noisy",
-                                 clean_folder="./dataset/val/clean",
-                                 image_transform=make_image_transform_crop(),
-                                 )
 
     sampler = torch.utils.data.RandomSampler(dataset,
                                              replacement=True,
                                              num_samples=args.iters_per_epoch * args.batch_size)
-    sampler_val = torch.utils.data.RandomSampler(dataset_val,
-                                                 replacement=True,
-                                                 num_samples=args.val_iters * 4)
-
+    
     dataloader = torch.utils.data.DataLoader(dataset,
                                              batch_size=args.batch_size,
                                              sampler=sampler,
                                              # num_workers=10,
                                              )
-    dataloader_val = torch.utils.data.DataLoader(dataset_val,
-                                                 batch_size=4,
-                                                 sampler=sampler_val,
-                                                 )
+    
+    if args.validation:
+        dataset_val = DenoiseDataset(noisy_folder="./dataset/val/noisy",
+                                     clean_folder="./dataset/val/clean",
+                                     image_transform=make_image_transform_crop(),
+                                     )
+        
+        sampler_val = torch.utils.data.RandomSampler(dataset_val,
+                                                     replacement=True,
+                                                     num_samples=args.val_iters * 4)
+        
+        dataloader_val = torch.utils.data.DataLoader(dataset_val,
+                                                     batch_size=4,
+                                                     sampler=sampler_val,
+                                                     )
+
+    
 
     for e in range(args.epochs):
         loss_avg = 0.0
@@ -61,20 +67,24 @@ def train(args):
             optim.step()
 
         # Validation cycle
-        model.eval()
-        for noisy, clean in tqdm(dataloader_val):
-            with torch.no_grad():
-                output = model(noisy)
-                output = noisy - output
-
-                loss = loss_fn(output, clean)
-
-                loss_avg_val += loss.item()
+        if args.validation:
+            model.eval()
+            for noisy, clean in tqdm(dataloader_val):
+                with torch.no_grad():
+                    output = model(noisy)
+                    output = noisy - output
+    
+                    loss = loss_fn(output, clean)
+    
+                    loss_avg_val += loss.item()
 
         # Plotting
         utils.plot_batch(noisy, output, clean, e, num_of_images=2, folder="plots/denoise")
-
-        print(f"Epoch : {e}; Loss : {loss_avg / len(dataloader)}; Val Loss : {loss_avg_val / len(dataloader_val)}")
+        
+        if args.validation:
+            print(f"Epoch : {e}; Loss : {loss_avg / len(dataloader)}; Val Loss : {loss_avg_val / len(dataloader_val)}")
+        else:
+            print(f"Epoch : {e}; Loss : {loss_avg / len(dataloader)}")
 
         if args.save_model:
             torch.save(model.state_dict(), "./model_denoise.pth")
@@ -91,6 +101,7 @@ if __name__ == "__main__":
     parser.add_argument("--iters_per_epoch", type=int, default=50)
     parser.add_argument("--save_model", action="store_true")
     parser.add_argument("--val_iters", type=int, default=50)
+    parser.add_argument("--validation", type=bool, default=False)
 
     args = parser.parse_args()
 
