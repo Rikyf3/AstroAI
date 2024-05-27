@@ -10,6 +10,13 @@ from utils import lin_norm
 
 
 def main(args):
+    if args.artifical_noise:
+        prepare_artifical_noise(args)
+    else:
+        prepare_real_noise(args)
+        
+
+def prepare_real_noise(args):
     assert os.path.isdir(args.noisy_folder) and os.path.isdir(args.clean_folder), f"{args.noisy_folder} or {args.clean_folder} are not folders"
 
     output_noisy_folder = os.path.join(args.output_folder, "noisy")
@@ -62,6 +69,53 @@ def main(args):
         progess.update(1)
 
     progess.close()
+    
+def prepare_artifical_noise(args):
+    assert os.path.isdir(args.clean_folder), f"{args.clean_folder} is not a folder"
+
+    output_clean_folder = os.path.join(args.output_folder, "clean")
+    os.makedirs(args.output_folder, exist_ok=True)
+    os.makedirs(output_clean_folder, exist_ok=True)
+
+    if len(os.listdir(output_clean_folder)) > 0:
+        logging.warning(f"{output_clean_folder} is not empty")
+
+    clean_files = sorted([file for file in os.listdir(args.clean_folder) if file.endswith(".fits")])
+    num_files = len(clean_files)
+
+    m = hashlib.md5()
+    progess = tqdm(total=num_files)
+    for clean_file in clean_files:
+        clean_path = os.path.join(args.clean_folder, clean_file)
+        clean = fits.getdata(clean_path, ext=0)
+        H, W, num_channels = clean.shape
+        
+        mad = []
+        fits_header = fits.open(clean_path)[0].header
+        for c in range(num_channels):
+            mad_channel = fits_header["mad" + str(c+1)]
+            print(mad_channel)
+            mad.append(mad_channel)
+
+
+        clean = clean.astype(np.float32)
+        noisy = np.copy(clean)
+        for c in range(num_channels):
+            noisy[:,:,c] = clean[:,:,c] + mad[c] * args.noise_factor * np.random.normal(loc=0.0, scale=0.6745, size=(H,W))
+        
+        noisy, med_, mad_ =  lin_norm(torch.from_numpy(noisy), None, None)
+        clean, _, _ = lin_norm(torch.from_numpy(clean), med_, mad_)
+        clean = clean.numpy()
+
+        # Save images in .npy (use np.memmap to open it)
+        m.update(bytes(clean_file, encoding='utf8'))
+        filename = f"{m.hexdigest()}.npy"
+        np.save(os.path.join(args.output_folder, "clean", filename), clean)
+
+        progess.update(1)
+
+    progess.close()
+    
 
 
 if __name__ == "__main__":
@@ -73,6 +127,8 @@ if __name__ == "__main__":
     parser.add_argument("--noisy_folder", required=True, type=str)
     parser.add_argument("--clean_folder", required=True, type=str)
     parser.add_argument("--output_folder", required=True, type=str)
+    parser.add_argument("--artifical_noise", type=bool, default=True)
+    parser.add_argument("--noise_factor", type=float, required=False, default = 3.0)
     args = parser.parse_args()
 
     main(args)
