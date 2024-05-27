@@ -88,29 +88,35 @@ def prepare_artifical_noise(args):
     for clean_file in clean_files:
         clean_path = os.path.join(args.clean_folder, clean_file)
         clean = fits.getdata(clean_path, ext=0)
-        H, W, num_channels = clean.shape
-        
+        num_channels, H, W = clean.shape
+
         mad = []
         fits_header = fits.open(clean_path)[0].header
         for c in range(num_channels):
             mad_channel = fits_header["mad" + str(c+1)]
-            print(mad_channel)
+            assert mad_channel is not None and mad_channel > 0.0, f"{mad_channel} is probably not correct in file {clean_file}"
             mad.append(mad_channel)
 
 
         clean = clean.astype(np.float32)
         noisy = np.copy(clean)
         for c in range(num_channels):
-            noisy[:,:,c] = clean[:,:,c] + mad[c] * args.noise_factor * np.random.normal(loc=0.0, scale=0.6745, size=(H,W))
+            noisy[c,:,:] = clean[c,:,:] + mad[c] * args.noise_factor * np.random.normal(loc=0.0, scale=1.4826, size=(H,W))
         
         noisy, med_, mad_ =  lin_norm(torch.from_numpy(noisy), None, None)
         clean, _, _ = lin_norm(torch.from_numpy(clean), med_, mad_)
         clean = clean.numpy()
+        
+        noise_mad = []
+        for c in range(num_channels):
+            noise_mad.append(mad[c] * args.noise_factor / mad_[c] * 0.04)
+        
+        metadata = {"noise_mad" : noise_mad}
 
         # Save images in .npy (use np.memmap to open it)
         m.update(bytes(clean_file, encoding='utf8'))
         filename = f"{m.hexdigest()}.npy"
-        np.save(os.path.join(args.output_folder, "clean", filename), clean)
+        np.savez(os.path.join(args.output_folder, "clean", filename), data=clean, metadata=metadata)
 
         progess.update(1)
 
