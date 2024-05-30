@@ -3,6 +3,7 @@ import argparse
 from models import UNet
 from data import DenoiseDataset, utils, make_image_transform_crop
 from tqdm import tqdm
+import torchmetrics
 
 
 def train(args):
@@ -11,6 +12,8 @@ def train(args):
     optim = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-5)
 
     loss_fn = torch.nn.L1Loss()
+    ssim_fn = torchmetrics.image.StructuralSimilarityIndexMeasure(data_range=1.0)
+    psnr_fn = torchmetrics.image.PeakSignalNoiseRatio()
 
     dataset = DenoiseDataset(noisy_folder="./dataset/train/noisy",
                              clean_folder="./dataset/train/clean",
@@ -41,6 +44,8 @@ def train(args):
     for e in range(args.epochs):
         loss_avg = 0.0
         loss_avg_val = 0.0
+        ssim_avg = 0.0
+        psnr_avg = 0.0
 
         # Training cycle
         model.train()
@@ -68,13 +73,17 @@ def train(args):
                 output = noisy - output
 
                 loss = loss_fn(output, clean)
+                ssim = ssim_fn(output, clean)
+                psnr = psnr_fn(output, clean)
 
                 loss_avg_val += loss.item()
+                ssim_avg += ssim.item()
+                psnr_avg += psnr.item()
 
         # Plotting
         utils.plot_batch(noisy, output, clean, e, num_of_images=2, folder="plots/denoise")
 
-        print(f"Epoch : {e}; Loss : {loss_avg / len(dataloader)}; Val Loss : {loss_avg_val / len(dataloader_val)}")
+        print(f"Epoch : {e}; Loss : {loss_avg / len(dataloader)}; Val Loss : {loss_avg_val / len(dataloader_val)}; SSIM : {ssim_avg / len(dataloader_val)}; PNSR : {psnr / len(dataloader_val)}")
 
         if args.save_model:
             torch.save(model.state_dict(), "./model_denoise.pth")
@@ -86,8 +95,8 @@ if __name__ == "__main__":
     )
 
     parser.add_argument("--epochs", type=int, default=100)
-    parser.add_argument("--batch_size", type=int, default=8)
-    parser.add_argument("--lr", type=float, default=5e-6)
+    parser.add_argument("--batch_size", type=int, default=2)
+    parser.add_argument("--lr", type=float, default=5e-5)
     parser.add_argument("--iters_per_epoch", type=int, default=50)
     parser.add_argument("--save_model", action="store_true")
     parser.add_argument("--val_iters", type=int, default=50)

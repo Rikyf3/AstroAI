@@ -54,11 +54,15 @@ class CustomPixelShuffle(nn.Module):
     def forward(self, x):
         b, c, h, w = x.shape
         blocksize = self.upscale_factor
-        tmp = x.reshape([b, c // (blocksize ** 2), blocksize, blocksize, h, w])
-        tmp = tmp.permute([0, 1, 4, 2, 5, 3])
-        y = tmp.reshape([b, c // (blocksize ** 2), h * blocksize, w * blocksize])
 
-        return y
+        tmp = x.reshape([b, c // blocksize, blocksize, h, w])
+        tmp = tmp.permute([0, 1, 3, 2, 4])
+        tmp = tmp.reshape([b, c // blocksize, h * blocksize, w])
+        tmp = tmp.reshape([b, c // (blocksize ** 2), blocksize, h*blocksize, w])
+        tmp = tmp.permute([0, 1, 4, 2, 3])
+        y_prime = tmp.reshape([b, c // (blocksize ** 2), h*blocksize, w*blocksize])
+
+        return y_prime
 
 
 class SimpleGate(nn.Module):
@@ -307,7 +311,6 @@ class CascadedGaze(nn.Module):
             self.ups.append(
                 nn.Sequential(
                     nn.Conv2d(chan, chan * 2, 1, bias=False),
-                    # nn.PixelShuffle(2)
                     CustomPixelShuffle(2),
                 )
             )

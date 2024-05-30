@@ -1,20 +1,21 @@
 import torch
-from models import VisionTransformer
-from heads import ImageHead
-
+from models import UNet
 
 def main():
-    model = VisionTransformer(backbone_size="base", head_layer=ImageHead)
+    model = UNet([64, 128, 256, 512, 512, 512, 512, 512])
 
-    state_dict = torch.load("model.pth", map_location="cpu")
+    state_dict = torch.load("model_denoise.pth", map_location="cpu")
     model.load_state_dict(state_dict)
     model.eval()
 
-    img = torch.randn(1, 3, 224, 224)
+    img = torch.randn(1, 1, 256, 256)
 
-    onnx_model = torch.onnx.dynamo_export(model, img)
-    onnx_model.save("model.onnx")
-    # torch.onnx.export(model, img, "model.onnx", input_names=["gen_input_image"])
+    torch.onnx.export(model,
+                      img,
+                      "model.onnx",
+                      input_names=["gen_input_image"],
+                      output_names=["output"],
+                      dynamic_axes={'gen_input_image': {0: 'batch_size'}, 'output': {0: 'batch_size'}})
 
 
 if __name__ == "__main__":
