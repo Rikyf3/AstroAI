@@ -1,11 +1,9 @@
 import os
-
-import matplotlib.pyplot as plt
-
 from .utils import median_abs_deviation, log_norm, linear_fit, lin_norm
 import torch
 import numpy as np
 import torch.utils.data
+from scipy import stats
 
 
 class BkgDataset(torch.utils.data.Dataset):
@@ -58,23 +56,20 @@ class BkgDataset(torch.utils.data.Dataset):
 
 
 class DenoiseDataset(torch.utils.data.Dataset):
-    def __init__(self, noisy_folder, clean_folder, image_transform, epsilon=1e-6):
+    def __init__(self, noisy_folder, clean_folder, image_transform, artificial_noise=True):
         super(DenoiseDataset, self).__init__()
 
-        self.noisy_files = [os.path.join(noisy_folder, file) for file in os.listdir(noisy_folder)]
-        self.clean_folder = clean_folder
+        self.clean_files = [os.path.join(clean_folder, file) for file in os.listdir(clean_folder)]
+        self.noisy_folder = noisy_folder
 
         self.image_transform = image_transform
 
-        self.epsilon = epsilon
+        self.artificial_noise = artificial_noise
 
     def __len__(self):
-        return len(self.noisy_files)
+        return len(self.clean_files)
 
-    def __getitem__(self, x):
-        noisy_file = np.random.choice(self.noisy_files, 1)[0]
-        clean_file = os.path.join(self.clean_folder, os.path.split(noisy_file)[-1])
-
+    def _getitem_natural(self, noisy_file, clean_file):
         # Loading files lazily with memmap to preserve memory and time
         noisy = np.load(noisy_file, mmap_mode="c")
         clean = np.load(clean_file, mmap_mode="c")
@@ -88,5 +83,30 @@ class DenoiseDataset(torch.utils.data.Dataset):
         clean = self.image_transform(clean)
 
         clean = linear_fit(noisy, clean)
+
+        return noisy, clean
+
+    def _getitem_artificial(self, clean_file):
+        # Loading files lazily with memmap to preserve memory and time
+        clean = np.load(clean_file, mmap_mode="c")
+
+        # Augmenting data
+        _mad = stats.median_abs_deviation(clean, axis=[-1, -2])[:, None, None]
+        clean = self.image_transform(clean)
+
+        # Adding noise
+        noise = 1.4826 * torch.from_numpy(_mad) * torch.randn_like(clean)
+        noisy = clean + noise
+
+        return noisy, clean
+
+    def __getitem__(self, x):
+        clean_file = np.random.choice(self.clean_files, 1)[0]
+        noisy_file = os.path.join(self.noisy_folder, os.path.split(clean_file)[-1])
+
+        if self.artificial_noise:
+            noisy, clean = self._getitem_artificial(clean_file)
+        else:
+            noisy, clean = self._getitem_natural(noisy_file, clean_file)
 
         return noisy, clean

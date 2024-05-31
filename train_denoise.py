@@ -17,10 +17,12 @@ def train(args):
 
     dataset = DenoiseDataset(noisy_folder="./dataset/train/noisy",
                              clean_folder="./dataset/train/clean",
+                             artificial_noise=args.artificial_noise,
                              image_transform=make_image_transform_crop(),
                              )
     dataset_val = DenoiseDataset(noisy_folder="./dataset/val/noisy",
                                  clean_folder="./dataset/val/clean",
+                                 artificial_noise=False,
                                  image_transform=make_image_transform_crop(),
                                  )
 
@@ -81,7 +83,7 @@ def train(args):
                 psnr_avg += psnr.item()
 
         # Plotting
-        utils.plot_batch(noisy, output, clean, e, num_of_images=2, folder="plots/denoise")
+        utils.plot_batch(noisy, output, clean, e, num_of_images=1, folder="plots/denoise")
 
         print(f"Epoch : {e}; Loss : {loss_avg / len(dataloader)}; Val Loss : {loss_avg_val / len(dataloader_val)}; SSIM : {ssim_avg / len(dataloader_val)}; PNSR : {psnr / len(dataloader_val)}")
 
@@ -98,8 +100,9 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=2)
     parser.add_argument("--lr", type=float, default=5e-5)
     parser.add_argument("--iters_per_epoch", type=int, default=50)
-    parser.add_argument("--save_model", action="store_true")
     parser.add_argument("--val_iters", type=int, default=50)
+    parser.add_argument("--save_model", action="store_true")
+    parser.add_argument("--artificial_noise", action="store_true")
 
     args = parser.parse_args()
 
