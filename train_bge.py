@@ -2,60 +2,46 @@ import os.path
 
 import torch
 import argparse
-from models import VisionTransformer, UNet
+import models
+import loss as losses
 from data import BkgDataset, make_image_transform_crop_resize, make_bkg_transform, make_transform_val
 from data.utils import lin_denorm, plot_batch
 import torch.utils.data
 from tqdm import tqdm
+from omegaconf import OmegaConf
 
 
-def train(args):
-    model = UNet([64, 128, 256, 512, 512, 512, 512, 512])  # .cuda()
+def train(config):
+    model = models.__dict__[config.model.arch](config).to("cuda" if torch.cuda.is_available() else "cpu")
+    loss_fn = losses.__dict__[config.loss.loss](config)
 
     optim = torch.optim.AdamW(model.parameters(), lr=args.initial_lr, weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optim, args.iters_per_epoch * args.epochs,
-                                                           eta_min=args.final_lr)
 
-    loss_fn = torch.nn.L1Loss()
-    loss_fn_val = torch.nn.L1Loss()
-
-    dataset = BkgDataset(image_folder=os.path.join(args.dataset_folder, "img"),
-                         bkg_folder=os.path.join(args.dataset_folder, "bkg"),
-                         image_transform=make_image_transform_crop_resize(image_output_size=224),
-                         bkg_transform=make_bkg_transform(image_output_size=224),
+    dataset = BkgDataset(image_folder=config.data.image_folder,
+                         bkg_folder=config.data.bkg_folder,
+                         image_transform=make_image_transform_crop_resize(),
+                         bkg_transform=make_bkg_transform(),
                          )
-
-    val_dataset = BkgDataset(image_folder=os.path.join(args.validation_folder, "img"),
-                             bkg_folder=os.path.join(args.validation_folder, "bkg"),
-                             image_transform=make_transform_val(image_output_size=224),
-                             bkg_transform=make_transform_val(image_output_size=224),
-                             validation=True,
-                             )
 
     sampler = torch.utils.data.RandomSampler(dataset,
                                              replacement=True,
-                                             num_samples=args.iters_per_epoch * args.batch_size)
+                                             num_samples=config.training.iters_per_epoch * config.training.batch_size)
 
     dataloader = torch.utils.data.DataLoader(dataset,
-                                             batch_size=args.batch_size,
+                                             batch_size=config.training.batch_size,
                                              sampler=sampler,
-                                             # num_workers=10,
+                                             num_workers=config.data.num_workers,
                                              )
-
-    val_dataloader = torch.utils.data.DataLoader(val_dataset,
-                                                 batch_size=4,
-                                                 shuffle=True,
-                                                 )
 
     for e in range(args.epochs):
         loss_avg = 0.0
-        loss_avg_val = 0.0
 
         # Training cycle
         model.train()
         for i, (image, bkg) in enumerate(tqdm(dataloader)):
-            # image = image.cuda(non_blocking=True)
-            # bkg = bkg.cuda(non_blocking=True)
+            if torch.cuda.is_available():
+                image = image.cuda(non_blocking=True)
+                bkg = bkg.cuda(non_blocking=True)
 
             output = model(image)
             loss = loss_fn(output, bkg)
@@ -66,46 +52,21 @@ def train(args):
             loss_avg += loss.item()
 
             optim.step()
-            scheduler.step()
-
-        # Validation cycle
-        model.eval()
-        for image, bkg, med_, mad_ in val_dataloader:
-            # image = image.cuda(non_blocking=True)
-            # bkg = bkg.cuda(non_blocking=True)
-            output = model(image)
-
-            for b in range(image.shape[0]):
-                output[b] = lin_denorm(output[b], med_[b], mad_[b])
-                bkg[b] = lin_denorm(bkg[b], med_[b], mad_[b])
-
-            loss_val = loss_fn_val(output, bkg)
-
-            loss_avg_val += loss_val.item()
 
         # Plotting
-        plot_batch(image, output, bkg, e, num_of_images=2, folder="plots/bge")
+        plot_batch(image, output, bkg, e, num_of_images=config.data.images_to_plot, folder="plots/bge")
 
-        print(f"Epoch : {e}; Loss : {loss_avg / len(dataloader)}; Val Loss : {loss_avg_val / len(val_dataloader)}")
+        print(f"Epoch : {e}; Loss : {loss_avg / len(dataloader)}")
 
-        if args.save_model:
+        if config.training.checkpointing:
             torch.save(model.state_dict(), "./model_bge.pth")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        prog="train GraXpertAI background extraction",
-    )
-
-    parser.add_argument("--epochs", type=int, default=100)
-    parser.add_argument("--batch_size", type=int, default=8)
-    parser.add_argument("--initial_lr", type=float, default=1e-5)
-    parser.add_argument("--final_lr", type=float, default=5e-6)
-    parser.add_argument("--iters_per_epoch", type=int, default=600)
-    parser.add_argument("--save_model", action="store_true")
-    parser.add_argument("--dataset_folder", type=str, default="./dataset/train/")
-    parser.add_argument("--validation_folder", type=str, default="./dataset/val")
-
+    parser = argparse.ArgumentParser(prog="train GraXpertAI background extractor")
+    parser.add_argument("--config", type=str, required=True)
     args = parser.parse_args()
 
-    train(args)
+    config = OmegaConf.load(args.config)
+
+    train(config)

@@ -1,59 +1,43 @@
 import torch
 import argparse
-from models import UNet
+import models
 from data import DenoiseDataset, utils, make_image_transform_crop
 from tqdm import tqdm
-import torchmetrics
+from omegaconf import OmegaConf
+import loss as losses
 
 
-def train(args):
-    model = UNet([64, 128, 256, 512, 512, 512, 512, 512])  # .cuda()
+def train(config):
+    model = models.__dict__[config.model.arch](config).to("cuda" if torch.cuda.is_available() else "cpu")
+    loss_fn = losses.__dict__[config.loss.loss](config)
 
-    optim = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-5)
+    optim = torch.optim.AdamW(model.parameters(), lr=config.training.lr, weight_decay=config.training.weight_decay)
 
-    loss_fn = torch.nn.L1Loss()
-    ssim_fn = torchmetrics.image.StructuralSimilarityIndexMeasure(data_range=1.0)
-    psnr_fn = torchmetrics.image.PeakSignalNoiseRatio()
-
-    dataset = DenoiseDataset(noisy_folder="./dataset/train/noisy",
-                             clean_folder="./dataset/train/clean",
-                             artificial_noise=args.artificial_noise,
+    dataset = DenoiseDataset(noisy_folder=config.data.noisy_folder,
+                             clean_folder=config.data.clean_folder,
+                             artificial_noise=config.data.use_artificial_noise,
                              image_transform=make_image_transform_crop(),
                              )
-    dataset_val = DenoiseDataset(noisy_folder="./dataset/val/noisy",
-                                 clean_folder="./dataset/val/clean",
-                                 artificial_noise=False,
-                                 image_transform=make_image_transform_crop(),
-                                 )
 
     sampler = torch.utils.data.RandomSampler(dataset,
                                              replacement=True,
-                                             num_samples=args.iters_per_epoch * args.batch_size)
-    sampler_val = torch.utils.data.RandomSampler(dataset_val,
-                                                 replacement=True,
-                                                 num_samples=args.val_iters * 4)
+                                             num_samples=config.training.iters_per_epoch * config.training.batch_size)
 
     dataloader = torch.utils.data.DataLoader(dataset,
-                                             batch_size=args.batch_size,
+                                             batch_size=config.training.batch_size,
                                              sampler=sampler,
-                                             # num_workers=10,
+                                             num_workers=config.data.num_workers,
                                              )
-    dataloader_val = torch.utils.data.DataLoader(dataset_val,
-                                                 batch_size=4,
-                                                 sampler=sampler_val,
-                                                 )
 
     for e in range(args.epochs):
         loss_avg = 0.0
-        loss_avg_val = 0.0
-        ssim_avg = 0.0
-        psnr_avg = 0.0
 
         # Training cycle
         model.train()
         for i, (noisy, clean) in enumerate(tqdm(dataloader)):
-            # noisy = noisy.cuda(non_blocking=True)
-            # clean = clean.cuda(non_blocking=True)
+            if torch.cuda.is_available():
+                noisy = noisy.cuda(non_blocking=True)
+                clean = clean.cuda(non_blocking=True)
 
             output = model(noisy)
             output = noisy - output
@@ -67,43 +51,20 @@ def train(args):
 
             optim.step()
 
-        # Validation cycle
-        model.eval()
-        for noisy, clean in tqdm(dataloader_val):
-            with torch.no_grad():
-                output = model(noisy)
-                output = noisy - output
-
-                loss = loss_fn(output, clean)
-                ssim = ssim_fn(output, clean)
-                psnr = psnr_fn(output, clean)
-
-                loss_avg_val += loss.item()
-                ssim_avg += ssim.item()
-                psnr_avg += psnr.item()
-
         # Plotting
-        utils.plot_batch(noisy, output, clean, e, num_of_images=1, folder="plots/denoise")
+        utils.plot_batch(noisy, output, clean, e, num_of_images=config.data.images_to_plot, folder="plots/denoise")
 
-        print(f"Epoch : {e}; Loss : {loss_avg / len(dataloader)}; Val Loss : {loss_avg_val / len(dataloader_val)}; SSIM : {ssim_avg / len(dataloader_val)}; PNSR : {psnr / len(dataloader_val)}")
+        print(f"Epoch : {e}; Loss : {loss_avg / len(dataloader)}")
 
-        if args.save_model:
+        if config.training.checkpointing:
             torch.save(model.state_dict(), "./model_denoise.pth")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        prog="train GraXpertAI denoise",
-    )
-
-    parser.add_argument("--epochs", type=int, default=100)
-    parser.add_argument("--batch_size", type=int, default=2)
-    parser.add_argument("--lr", type=float, default=5e-5)
-    parser.add_argument("--iters_per_epoch", type=int, default=50)
-    parser.add_argument("--val_iters", type=int, default=50)
-    parser.add_argument("--save_model", action="store_true")
-    parser.add_argument("--artificial_noise", action="store_true")
-
+    parser = argparse.ArgumentParser(prog="train GraXpertAI denoise", )
+    parser.add_argument("--config", type=str, required=True)
     args = parser.parse_args()
 
-    train(args)
+    config = OmegaConf.load(args.config)
+
+    train(config)
